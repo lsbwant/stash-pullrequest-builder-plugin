@@ -242,7 +242,9 @@ public class StashApiClient {
     }
 
     private String pullRequestsPath() {
-        return apiBaseUrl + this.project + "/repos/" + this.repositoryName + "/pull-requests/";
+    	String url = apiBaseUrl + this.project + "/repos/" + this.repositoryName + "/pull-requests/";
+    	logger.info("url: " + url);
+        return url;
     }
 
     private String pullRequestPath(String pullRequestId) {

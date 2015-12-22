@@ -20,6 +20,9 @@
   <f:entry title="CI Skip Phrases" field="ciSkipPhrases">
     <f:textbox />
   </f:entry>
+    <f:entry title="Branch(The branch that you want to moniter)" field="configuredToBranch">
+    <f:textbox />
+  </f:entry>
   <f:advanced>
     <f:entry title="Rebuild if destination branch changes?" field="checkDestinationCommit">
       <f:checkbox />

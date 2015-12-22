@@ -7,6 +7,7 @@ import hudson.model.queue.QueueTaskFuture;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import net.sf.json.JSONObject;
+
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -30,10 +31,13 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
     private final String repositoryName;
     private final String ciSkipPhrases;
     private final String ciBuildPhrases;
+    private final String configuredToBranch;
     private final boolean checkDestinationCommit;
     private final boolean checkMergeable;
     private final boolean checkNotConflicted;
     private final boolean onlyBuildOnComment;
+    
+    
 
     transient private StashPullRequestsBuilder stashPullRequestsBuilder;
 
@@ -54,7 +58,8 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
             boolean checkMergeable,
             boolean checkNotConflicted,
             boolean onlyBuildOnComment,
-            String ciBuildPhrases
+            String ciBuildPhrases,
+            String configuredToBranch
             ) throws ANTLRException {
         super(cron);
         this.projectPath = projectPath;
@@ -66,13 +71,19 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
         this.repositoryName = repositoryName;
         this.ciSkipPhrases = ciSkipPhrases;
         this.ciBuildPhrases = ciBuildPhrases == null ? "test this please" : ciBuildPhrases;
+        this.configuredToBranch = configuredToBranch;
         this.checkDestinationCommit = checkDestinationCommit;
         this.checkMergeable = checkMergeable;
         this.checkNotConflicted = checkNotConflicted;
         this.onlyBuildOnComment = onlyBuildOnComment;
+        
     }
 
-    public String getStashHost() {
+    public String getConfiguredToBranch() {
+		return configuredToBranch;
+	}
+    
+	public String getStashHost() {
         return stashHost;
     }
 
@@ -138,6 +149,7 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
     public QueueTaskFuture<?> startJob(StashCause cause) {
         Map<String, ParameterValue> values = new HashMap<String, ParameterValue>();
         values.put("sourceBranch", new StringParameterValue("sourceBranch", cause.getSourceBranch()));
+	    values.put("sourceHash", new StringParameterValue("sourceHash", cause.getSourceCommitHash()));
         values.put("targetBranch", new StringParameterValue("targetBranch", cause.getTargetBranch()));
         values.put("projectCode", new StringParameterValue("projectCode", cause.getRepositoryOwner()));
         values.put("repositoryName", new StringParameterValue("repositoryName", cause.getRepositoryName()));
@@ -145,6 +157,7 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
         values.put("destinationRepositoryOwner", new StringParameterValue("destinationRepositoryOwner", cause.getDestinationRepositoryOwner()));
         values.put("destinationRepositoryName", new StringParameterValue("destinationRepositoryName", cause.getDestinationRepositoryName()));
         values.put("pullRequestTitle", new StringParameterValue("pullRequestTitle", cause.getPullRequestTitle()));
+        logger.info("PR: " + cause.getPullRequestTitle() + " schedule build");
         return this.job.scheduleBuild2(0, cause, new ParametersAction(new ArrayList(values.values())));
     }
 
@@ -165,6 +178,7 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
         if(this.getBuilder().getProject().isDisabled()) {
             logger.info("Build Skip.");
         } else {
+        	logger.info("run ....");
             this.stashPullRequestsBuilder.run();
         }
         this.getDescriptor().save();
@@ -208,4 +222,10 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
             return super.configure(req, json);
         }
     }
+    
+    public String getjobName(){
+    	return this.job.getName();
+    }
+
+
 }

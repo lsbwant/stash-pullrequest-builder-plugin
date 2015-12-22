@@ -14,6 +14,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jfree.util.Log;
+
 /**
  * Created by Nathan McCarthy
  */
@@ -53,11 +55,13 @@ public class StashRepository {
     }
 
     public Collection<StashPullRequestResponseValue> getTargetPullRequests() {
-        logger.info("Fetch PullRequests.");
+    	myLogger("Fetch PullRequests.");
         List<StashPullRequestResponseValue> pullRequests = client.getPullRequests();
         List<StashPullRequestResponseValue> targetPullRequests = new ArrayList<StashPullRequestResponseValue>();
         for(StashPullRequestResponseValue pullRequest : pullRequests) {
-            if (isBuildTarget(pullRequest)) {
+        	myLogger("P&R:" + pullRequest.getTitle());
+            if (isBuildTarget_(pullRequest)) {
+            	myLogger("add pullRequest " + pullRequest.getTitle() + " to targetPullRequests");
                 targetPullRequests.add(pullRequest);
             }
         }
@@ -88,8 +92,9 @@ public class StashRepository {
                     pullRequest.getFromRef().getCommit().getHash(),
                     pullRequest.getToRef().getCommit().getHash(),
                     commentId);
+            myLogger("P&R:" + pullRequest.getTitle() + " start job");
             this.builder.getTrigger().startJob(cause);
-
+            
         }
     }
 
@@ -120,6 +125,16 @@ public class StashRepository {
         return true;
     }
 
+    private boolean isBuildTarget_(StashPullRequestResponseValue pullRequest){
+    	boolean isTarget = this.isBuildTarget(pullRequest);
+    	myLogger("pullRequest: " + pullRequest.getTitle() +  "isBuildTarget: " + isTarget);
+    	return isTarget;
+    }
+    
+    private void myLogger(String msg){
+    	logger.info("Thread-" + Thread.currentThread().getId() + " JobName=" + trigger.getjobName() + "---" + msg);
+    }
+    
     private boolean isBuildTarget(StashPullRequestResponseValue pullRequest) {
 
         boolean shouldBuild = true;
@@ -132,10 +147,15 @@ public class StashRepository {
             if(!isPullRequestMergable(pullRequest)) {
                 return false;
             }
-
+            
+            if (!isConfigedToBranch(pullRequest)) {
+                return false;
+            }
+            
             if (trigger.isOnlyBuildOnComment()) {
                 shouldBuild = false;
             }
+            
 
             String sourceCommit = pullRequest.getFromRef().getCommit().getHash();
 
@@ -196,6 +216,7 @@ public class StashRepository {
                 }
             }
         }
+        
         return shouldBuild;
     }
 
@@ -212,6 +233,24 @@ public class StashRepository {
         return false;
     }
 
+    private boolean isConfigedToBranch(StashPullRequestResponseValue pullRequest){
+    	String targetBranch = pullRequest.getToRef().getBranch().getName();
+    	String configuredToBranch = this.trigger.getConfiguredToBranch();
+    	if(configuredToBranch == null || configuredToBranch.equals("")){
+    		myLogger("P&R: " + pullRequest.getTitle() + "--- configure to branch set with no values, so all branch are potential valid target branch");
+    		return true;
+    	}else{
+	    	if(configuredToBranch.equals(targetBranch)){
+	    		myLogger("P&R: " + pullRequest.getTitle() + "--- target Branch " + targetBranch + "  matches to configured to branch " + configuredToBranch + ", trigger the CI process");
+	    		return true;
+	    	}else{
+	    		myLogger("P&R: " + pullRequest.getTitle() + "--- target Branch " + targetBranch + " do not matches to configured to branch " + configuredToBranch + " , do not trigger the CI process");
+	    		return false;
+	    	}
+    	}
+    	
+    }
+    
     private boolean isPhrasesContain(String text, String phrase) {
         return text != null && text.toLowerCase().contains(phrase.trim().toLowerCase());
     }
